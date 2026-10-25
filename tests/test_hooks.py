@@ -978,7 +978,7 @@ def test_state_is_keyed_by_session_and_configuration(tmp_path: Path) -> None:
 
     a = parse_agents(agents_dict())
     data = agents_dict()
-    data["hooks"] = {"approval_token": "DIFFERENT-TOKEN"}
+    data["agents"]["ollama"]["endpoints"][0]["url"] = "http://127.0.0.1:9998"
     b = parse_agents(data)
     paths = [state_path(tmp_path, "a", a), state_path(tmp_path, "b", a), state_path(tmp_path, "a", b)]
     assert len(set(paths)) == 3
@@ -986,7 +986,6 @@ def test_state_is_keyed_by_session_and_configuration(tmp_path: Path) -> None:
         save_state(path, {"ts": NOW.timestamp(), "reachable": i == 0})
     states = [read_state(path) for path in paths]
     assert [s["reachable"] for s in states if s is not None] == [True, False, False] and None not in states
-    assert all("DIFFERENT-TOKEN" not in p.name for p in paths)
 
 
 def test_out_of_order_completions_keep_the_newest_result(tmp_path: Path) -> None:

@@ -132,15 +132,14 @@ def local_reachable(state: dict[str, Any] | None, max_age: int, now: float) -> b
 
 
 def state_key(session: str, doc: AgentsFile) -> str:
-    # Fingerprint the parsed merged configuration, including overrides, never serialize it to disk.
-    data = dataclasses.asdict(doc)
-    data.pop("source", None)
-    data["agents"] = sorted(data["agents"], key=lambda row: row["id"])
-    data["shapes"] = sorted(data["shapes"], key=lambda row: row["name"])
-    for agent in data["agents"]:
-        agent["limits"] = sorted(agent["limits"])
-        for endpoint in agent["endpoints"]:
+    # Fingerprint only what a probe's answer depends on: the local agents' endpoints. Never serialize it to disk.
+    local = sorted((a for a in doc.agents if a.kind == "ollama"), key=lambda a: a.id)
+    data = []
+    for agent in local:
+        endpoints = [dataclasses.asdict(e) for e in agent.endpoints]
+        for endpoint in endpoints:
             endpoint["loaded_num_ctx"] = sorted(endpoint["loaded_num_ctx"])
+        data.append({"id": agent.id, "endpoints": endpoints})
     raw = json.dumps(data, sort_keys=True, default=str)
     return hashlib.sha256((session + "\0" + raw).encode()).hexdigest()
 

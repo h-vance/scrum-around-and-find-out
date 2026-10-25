@@ -52,8 +52,8 @@ A hook sits inside someone's session, so every error lets the work through, visi
 
 Under `$XDG_STATE_HOME/safo/hooks` (default `~/.local/state/safo/hooks`), mode 0600: `log.jsonl` (decision, mode, model
 identifier or `unknown`, booleans, rule names, health, diagnostic enum; at most 2048 bytes a record, 4 MiB, one archive)
-and per-session probe files named by a hash of the session id and the merged configuration, holding a completion time,
-booleans and role flags. No prompt, description, address, endpoint name or loaded-model name is stored. Probe files
+and per-session probe files named by a hash of the session id and the local agents' endpoints (so editing a
+shape, a note or another agent keeps the session's probe), holding a completion time, booleans and role flags. No prompt, description, address, endpoint name or loaded-model name is stored. Probe files
 untouched for a week are removed when a session starts. The mode lives in `~/.config/safo/mode`.
 
 SAFO creates its own state and config directories mode 0700. Before it uses one, the directory must be owned by the
