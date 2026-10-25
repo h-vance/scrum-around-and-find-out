@@ -29,7 +29,8 @@ approval token, and that includes a model that a prompt injection has talked int
 4. **No hidden work.** A brief carries a line of its own, `issue: owner/repo#N` or `issue: KEY-N`, naming an issue that
    exists and is open (`no-issue`, `issue-unusable`, `issue-unverified`). A GitHub issue is checked with a read-only `gh issue
    view`; in `block` mode a lookup that fails denies. Nothing is exempt unless `hooks.tracking_exempt_repos` lists the
-   repository. See [No hidden work](no-hidden-work.md).
+   repository. When `hooks.no_issue_marker` is set (empty by default), a brief may instead carry that marker followed
+   by a reason, and the rule is satisfied. See [No hidden work](no-hidden-work.md).
 
 ## Failing safe
 

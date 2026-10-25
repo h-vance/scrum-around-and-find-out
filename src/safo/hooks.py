@@ -348,6 +348,9 @@ def check_dispatch(
     local_step = any(marker in lowered for marker in hooks.local_step_markers)
     # The marker's own words may be separated by any whitespace; a reason (a non-blank character) must follow it.
     na = re.search(r"\s+".join(re.escape(word) for word in hooks.na_marker.split()) + r"\s*\S", lowered) is not None
+    no_issue = bool(hooks.no_issue_marker) and (
+        re.search(r"\s+".join(re.escape(w) for w in hooks.no_issue_marker.split()) + r"\s*\S", lowered) is not None
+    )
     rules: list[str] = []
     reasons: list[str] = []
     # The token is typed by hand, so it is found however it is cased or wrapped: [TOKEN], (token), a line of its own.
@@ -372,8 +375,10 @@ def check_dispatch(
     if reachable and not local_step and not na:
         rules.append(NO_LOCAL_STEP)
         reasons.append("the local LLM is reachable but the brief names no local step and gives no reason for none")
-    if resolve is not None and not tracking.exempt(
-        repo() if hooks.tracking_exempt_repos else None, hooks.tracking_exempt_repos
+    if (
+        resolve is not None
+        and not no_issue
+        and not tracking.exempt(repo() if hooks.tracking_exempt_repos else None, hooks.tracking_exempt_repos)
     ):
         # Which repositories a brief may cite is operator configuration alone: nothing derived from the session counts.
         broken = tracking.check(prompt, resolve, set(hooks.tracking_repos))

@@ -29,6 +29,8 @@ issue: ChiefGyk3D/example#123
 - A Jira-style key, `KEY-123`, is accepted by its shape alone, because no Jira instance exists today. See the mapping below.
 - No line, an invalid line, a missing or closed issue: in `block` mode the dispatch is denied with a message that says how
   to file one; in `warn` mode it is reported and allowed.
+- When `hooks.no_issue_marker` is set (empty by default), a brief may instead carry that marker followed by a reason,
+  and the rule is satisfied. Set it in `~/.config/safo/agents.local.yaml`, for example `issue: none -`.
 - A lookup that cannot answer (no `gh`, not logged in, a timeout) fails closed in `block` mode and is reported in `warn`
   mode. The log records the rule name (`no-issue`, `issue-unusable`, `issue-unverified`), never the brief.
 - A GitHub reference must name a repository the operator listed in `hooks.tracking_repos` in `agents.yaml`; any other
