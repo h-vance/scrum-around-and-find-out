@@ -115,6 +115,7 @@ class Hooks:
     max_state_age_seconds: int = 300  # how long a probe is trusted; past it the guard re-probes lazily, bounded
     local_step_markers: tuple[str, ...] = ("safo local run", "llm-local")  # any one names the brief's local step
     na_marker: str = "local-llm: n/a -"  # followed by a reason, it says why the brief has no local step
+    no_issue_marker: str = ""  # followed by a reason, it says why the brief has no tracking item; empty means off
     # owner/name of repositories whose sessions need no `issue:` line in a brief; nothing is exempt by default
     tracking_exempt_repos: tuple[str, ...] = ()
     # owner/name of repositories whose issues a brief may cite, besides the session's own repository (its origin remote)
@@ -298,6 +299,7 @@ def _hooks(r: Reader, value: object) -> Hooks:
             "max_state_age_seconds",
             "local_step_markers",
             "na_marker",
+            "no_issue_marker",
             "tracking_exempt_repos",
             "tracking_repos",
         },
@@ -314,6 +316,7 @@ def _hooks(r: Reader, value: object) -> Hooks:
     if not markers:
         raise r.fail("hooks.local_step_markers", "needs at least one marker")
     na = r.string(m.get("na_marker", default.na_marker), "hooks.na_marker")
+    no_issue = r.string(m.get("no_issue_marker", default.no_issue_marker), "hooks.no_issue_marker", empty=True)
     named: dict[str, tuple[str, ...]] = {}
     for key in ("tracking_exempt_repos", "tracking_repos"):
         names = _strings(r, m.get(key, []), f"hooks.{key}")
@@ -326,6 +329,7 @@ def _hooks(r: Reader, value: object) -> Hooks:
         age,
         tuple(x.lower() for x in markers),
         na.strip().lower(),
+        no_issue.strip().lower(),
         named["tracking_exempt_repos"],
         named["tracking_repos"],
     )
