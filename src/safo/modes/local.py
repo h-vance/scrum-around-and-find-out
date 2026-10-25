@@ -78,6 +78,8 @@ def run(ctx: LocalContext, args: argparse.Namespace) -> int:
     except EndpointUnreachableError as err:
         ctx.say(f"{err}: hand it to {fallback} instead")
         return EXIT_DRIFT
+    if not think and (result.thinking or "</think>" in result.response):
+        ctx.say(f"warning: {model} thought out loud although think=false; use a non-thinking (instruct) model")
     output.block(ctx.out, result.response.rstrip("\n").split("\n"))  # untrusted text: inside a stop-commands block
     speed = f"{result.tokens_per_second:g} tok/s" if result.tokens_per_second else "speed unknown"
     note = (

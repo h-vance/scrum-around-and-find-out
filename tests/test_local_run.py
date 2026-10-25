@@ -212,3 +212,33 @@ def test_local_run_under_actions_refuses_an_outcomes_log_in_the_workspace(_priva
             "--log", str(ws / "o.jsonl"), home=_private_home, extra_env=env,
         )  # fmt: skip
         assert code == 2 and "GITHUB_WORKSPACE" in err and a.generates == []
+
+
+def test_local_run_warns_when_a_model_thinks_out_loud_with_think_off(_private_home: Path, tmp_path: Path) -> None:
+    prompt = tmp_path / "p.txt"
+    prompt.write_text("x")
+    with FakeOllama(A_MODELS, A_MODELS).serve() as a, FakeOllama(B_MODELS, B_MODELS).serve() as b:
+        a.reply["thinking"] = "let me reason first"
+        agents = write_agents(tmp_path / "agents.yaml", a.url, b.url)
+        code, out, _ = local_run("ci-log-summary", prompt, agents, tmp_path / "o.jsonl", _private_home)
+    assert code == 0 and a.generates[0]["think"] is False
+    assert "thought out loud" in out and "use a non-thinking (instruct) model" in out
+
+
+def test_local_run_warns_when_the_answer_carries_a_think_block(_private_home: Path, tmp_path: Path) -> None:
+    prompt = tmp_path / "p.txt"
+    prompt.write_text("x")
+    with FakeOllama(A_MODELS, A_MODELS).serve() as a, FakeOllama(B_MODELS, B_MODELS).serve() as b:
+        a.reply["response"] = "<think>x</think>answer"
+        agents = write_agents(tmp_path / "agents.yaml", a.url, b.url)
+        code, out, _ = local_run("ci-log-summary", prompt, agents, tmp_path / "o.jsonl", _private_home)
+    assert code == 0 and "thought out loud" in out
+
+
+def test_local_run_does_not_warn_for_a_plain_answer(_private_home: Path, tmp_path: Path) -> None:
+    prompt = tmp_path / "p.txt"
+    prompt.write_text("x")
+    with FakeOllama(A_MODELS, A_MODELS).serve() as a, FakeOllama(B_MODELS, B_MODELS).serve() as b:
+        agents = write_agents(tmp_path / "agents.yaml", a.url, b.url)
+        code, out, _ = local_run("ci-log-summary", prompt, agents, tmp_path / "o.jsonl", _private_home)
+    assert code == 0 and "A short answer." in out and "thought out loud" not in out
