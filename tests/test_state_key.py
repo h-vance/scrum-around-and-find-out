@@ -47,3 +47,11 @@ def test_changing_an_ollama_endpoint_models_changes_the_key() -> None:
 def test_a_different_session_changes_the_key() -> None:
     data = agents_dict()
     assert _key(data, "session-a") != _key(data, "session-b")
+
+
+def test_changing_an_ollama_endpoint_roles_changes_the_key() -> None:
+    before = _key(agents_dict())
+    data = agents_dict()
+    endpoint = data["agents"]["ollama"]["endpoints"][0]
+    endpoint["roles"] = [*endpoint["roles"], "embedding"] if "embedding" not in endpoint["roles"] else ["general"]
+    assert _key(data) != before

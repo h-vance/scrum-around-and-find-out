@@ -43,6 +43,7 @@ def _enabled_kinds(ctx: Context, args: argparse.Namespace) -> frozenset[str] | N
     try:
         return enabled_kinds(local, argparse.Namespace(**{"agents": "", "agents_local": "", **vars(args)}))
     except ConfigError:
+        ctx.say("warning: the agents file could not be read, so every agent's section is shown")
         return None
 
 

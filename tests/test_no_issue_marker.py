@@ -47,3 +47,9 @@ def test_the_marker_is_parsed_trimmed_and_lowercased() -> None:
     assert parse_agents({**agents_dict(), "hooks": {"no_issue_marker": "  Issue: None -  "}}).hooks.no_issue_marker == (
         MARKER
     )
+
+
+def test_the_marker_never_excuses_an_issue_line_that_is_present() -> None:
+    # A brief that names an issue is checked as usual: the marker stands in only for a missing line.
+    rules, _ = dispatch(f"issue: someone/else#7\n{MARKER} no reason needed", no_issue_marker=MARKER)
+    assert rules == ("issue-unusable",)
