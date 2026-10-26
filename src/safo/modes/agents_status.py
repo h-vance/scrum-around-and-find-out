@@ -4,15 +4,17 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import time
 from collections import defaultdict
 from pathlib import Path
 
 from safo.agents import read_codex, read_copilot
-from safo.context import Context
+from safo.context import Context, LocalContext
 from safo.errors import EXIT_OK, ConfigError, MalformedDataError
 from safo.guardlog import guard_lines
 from safo.live import load_live
+from safo.localfiles import add_agents_arguments, enabled_kinds
 from safo.modes import Mode, register
 
 HOURS_MAX = 24 * 366
@@ -33,6 +35,15 @@ Q_AGENT_ITEMS = """query AgentItems(
     }
   } } }
 }"""
+
+
+def _enabled_kinds(ctx: Context, args: argparse.Namespace) -> frozenset[str] | None:
+    """Kinds still enabled in the agents file; a missing or unreadable file hides nothing."""
+    local = LocalContext(ctx.out, ctx.env, dt.datetime.now(dt.UTC))
+    try:
+        return enabled_kinds(local, argparse.Namespace(**{"agents": "", "agents_local": "", **vars(args)}))
+    except ConfigError:
+        return None
 
 
 def run(ctx: Context, args: argparse.Namespace) -> int:
@@ -73,7 +84,8 @@ def run(ctx: Context, args: argparse.Namespace) -> int:
         for line in guard_lines(ctx.env):
             ctx.say(line)
 
-    if not args.no_codex:
+    kinds = _enabled_kinds(ctx, args)
+    if not args.no_codex and (kinds is None or "codex" in kinds):
         try:
             root = Path(args.codex_dir).expanduser()
         except RuntimeError:  # no home directory to expand ~ against
@@ -90,7 +102,7 @@ def run(ctx: Context, args: argparse.Namespace) -> int:
                 f"  plan {lim.plan}: 5-hour window {lim.five_hour_percent}% (resets {lim.five_hour_resets}), "
                 f"weekly {lim.weekly_percent}% (resets {lim.weekly_resets})"
             )
-    if not args.no_copilot:
+    if not args.no_copilot and (kinds is None or "copilot" in kinds):
         ctx.say("\nCopilot coding agent: recent tasks")
         tasks = read_copilot()
         if tasks is None:
@@ -109,6 +121,7 @@ def add_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--no-guard", action="store_true", help="skip the routing-guard counts")
     parser.add_argument("--no-codex", action="store_true", help="skip the Codex section")
     parser.add_argument("--no-copilot", action="store_true", help="skip the Copilot section")
+    add_agents_arguments(parser)
 
 
 register(Mode("agents-status", "what Claude, Codex and Copilot are doing (read-only)", add_arguments, run))

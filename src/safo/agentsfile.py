@@ -403,6 +403,7 @@ def parse_agents(
         raise r.fail("version", "only version 1 is supported")
 
     agents: list[Agent] = []
+    off: set[str] = set()  # enabled: false; dropped from every chain once the whole file has validated
     for agent_id, raw in r.mapping(top["agents"], "agents", set(top["agents"] or {})).items():
         path = f"agents.{agent_id}"
         m = r.mapping(
@@ -414,6 +415,7 @@ def parse_agents(
                 "role",
                 "model",
                 "approval_required",
+                "enabled",
                 "limits",
                 "strengths",
                 "constraints",
@@ -426,6 +428,10 @@ def parse_agents(
         approval = m.get("approval_required", False)
         if not isinstance(approval, bool):
             raise r.fail(f"{path}.approval_required", "expected true or false")
+        if not isinstance(m.get("enabled", True), bool):
+            raise r.fail(f"{path}.enabled", "expected true or false")
+        if not m.get("enabled", True):
+            off.add(str(agent_id))
         endpoints = _endpoints(r, m.get("endpoints"), f"{path}.endpoints")
         kind = r.choice(m["kind"], f"{path}.kind", KINDS)
         if kind == "ollama" and not endpoints:
@@ -470,6 +476,9 @@ def parse_agents(
                 raise r.fail(f"{path}[{i}]", f"{x!r} is not an agent in agents (agents: {', '.join(sorted(known))})")
         return ids
 
+    def live(ids: tuple[str, ...]) -> tuple[str, ...]:
+        return tuple(x for x in ids if x not in off)
+
     warnings: list[str] = []
     shapes: list[Shape] = []
     for name, raw in r.mapping(top["shapes"], "shapes", set(top["shapes"] or {})).items():
@@ -480,7 +489,12 @@ def parse_agents(
         prefer = agent_ids(m["prefer"], f"{path}.prefer")
         if not prefer:
             raise r.fail(f"{path}.prefer", "needs at least one agent")
-        fallback = agent_ids(m.get("fallback"), f"{path}.fallback")
+        prefer = live(prefer)
+        fallback = live(agent_ids(m.get("fallback"), f"{path}.fallback"))
+        if not prefer:  # the fallback steps up; only a shape with nobody left is an error
+            prefer, fallback = fallback, ()
+        if not prefer:
+            raise r.fail(f"{path}.prefer", "every agent in prefer and fallback is disabled (enabled: false)")
         local = r.mapping(m.get("local", {}), f"{path}.local", {"role", "model"})
         local_role = r.choice(local.get("role", "general"), f"{path}.local.role", ROLES) if m.get("local") else ""
         local_agent = next((a for a in agents if a.kind == "ollama" and a.id in prefer + fallback), None)
@@ -501,7 +515,7 @@ def parse_agents(
                 r.string(m["description"], f"{path}.description"),
                 prefer,
                 fallback,
-                agent_ids(m.get("reviewer"), f"{path}.reviewer"),
+                live(agent_ids(m.get("reviewer"), f"{path}.reviewer")),
                 r.string(m.get("note", ""), f"{path}.note", empty=True),
                 local_role,
                 local_model,
@@ -515,14 +529,10 @@ def parse_agents(
         above = m["above"]
         if isinstance(above, bool) or not isinstance(above, int | float) or not 0 <= above <= 100:
             raise r.fail(f"{path}.above", "expected a percentage from 0 to 100")
-        thresholds.append(
-            Threshold(
-                agent_ids([m["agent"]], f"{path}.agent")[0],
-                r.choice(m["meter"], f"{path}.meter", METERS),
-                float(above),
-                agent_ids([m["then"]], f"{path}.then")[0],
-            )
-        )
+        frm, to = agent_ids([m["agent"]], f"{path}.agent")[0], agent_ids([m["then"]], f"{path}.then")[0]
+        if not off & {frm, to}:
+            thresholds.append(Threshold(frm, r.choice(m["meter"], f"{path}.meter", METERS), float(above), to))
+    agents = [a for a in agents if a.id not in off]
     check_profiles(r, tuple(agents), tuple(shapes), warnings)
     return AgentsFile(
         tuple(agents),
