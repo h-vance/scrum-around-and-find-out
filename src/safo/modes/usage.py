@@ -54,7 +54,7 @@ def text(m: Meters, days: float, month: str, kinds: frozenset[str] | None = None
             )
     c = m.copilot
     if kinds is not None and "copilot" not in kinds:
-        pass
+        pass  # Copilot is switched off: no section
     elif not c.available:
         lines.append("Copilot: gh is not available")
     else:

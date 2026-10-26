@@ -348,8 +348,11 @@ def check_dispatch(
     local_step = any(marker in lowered for marker in hooks.local_step_markers)
     # The marker's own words may be separated by any whitespace; a reason (a non-blank character) must follow it.
     na = re.search(r"\s+".join(re.escape(word) for word in hooks.na_marker.split()) + r"\s*\S", lowered) is not None
-    no_issue = bool(hooks.no_issue_marker) and (
-        re.search(r"\s+".join(re.escape(w) for w in hooks.no_issue_marker.split()) + r"\s*\S", lowered) is not None
+    # The no-issue marker stands in only for a missing `issue:` line: a brief that has one is always checked.
+    no_issue = (
+        bool(hooks.no_issue_marker)
+        and not tracking.has_issue_line(prompt)
+        and re.search(r"\s+".join(re.escape(w) for w in hooks.no_issue_marker.split()) + r"\s*\S", lowered) is not None
     )
     rules: list[str] = []
     reasons: list[str] = []
