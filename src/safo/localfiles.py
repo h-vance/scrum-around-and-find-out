@@ -85,6 +85,15 @@ def load_agents_for(ctx: LocalContext, args: argparse.Namespace) -> AgentsFile:
     return load_agents_merged(agents_path(ctx, args), local_path(ctx, args))
 
 
+def enabled_kinds(ctx: LocalContext, args: argparse.Namespace) -> frozenset[str] | None:
+    """The agent kinds still enabled in the merged agents file; None when there is no file to say (show everything)."""
+    if not (getattr(args, "agents", "") or ctx.env.get("SAFO_AGENTS") or ctx.env.get("HOME")):
+        return None
+    if not agents_path(ctx, args).is_file():
+        return None
+    return frozenset(a.kind for a in load_agents_for(ctx, args).agents)
+
+
 def load_verified_for(ctx: LocalContext, args: argparse.Namespace) -> VerifiedAgents:
     """The agents file with its evidence pointers resolved: the one load path for anything that reads a profile."""
     return load_verified_agents(agents_path(ctx, args), local_path(ctx, args))

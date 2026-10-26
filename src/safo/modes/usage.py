@@ -40,8 +40,9 @@ def codex_lines(c: CodexUsage) -> list[str]:
     return lines
 
 
-def text(m: Meters, days: float, month: str) -> list[str]:
-    lines = codex_lines(m.codex)
+def text(m: Meters, days: float, month: str, kinds: frozenset[str] | None = None) -> list[str]:
+    """`kinds` is the agent kinds still enabled; None shows every meter. A switched-off agent has no section."""
+    lines = codex_lines(m.codex) if kinds is None or "codex" in kinds else []
     if not m.claude.found:
         lines.append("Claude Code: no transcripts found")
     else:
@@ -52,7 +53,9 @@ def text(m: Meters, days: float, month: str) -> list[str]:
                 f"cache read {u.cache_read_tokens:,}  cache write {u.cache_creation_tokens:,}"
             )
     c = m.copilot
-    if not c.available:
+    if kinds is not None and "copilot" not in kinds:
+        pass
+    elif not c.available:
         lines.append("Copilot: gh is not available")
     else:
         sessions = "unknown" if c.sessions is None else str(c.sessions)
@@ -78,20 +81,23 @@ def run(ctx: LocalContext, args: argparse.Namespace) -> int:
     except ValueError:
         raise ConfigError("month: expected YYYY-MM") from None
     allowance = None
+    kinds: frozenset[str] | None = None
     endpoints: tuple[Endpoint, ...] = ()
     if args.report:
         return report(ctx, args, month)
     if agents_path(ctx, args).is_file():
         doc = load_agents_for(ctx, args)
+        kinds = frozenset(a.kind for a in doc.agents)
         allowance = doc.monthly_allowance()
         endpoints = () if args.no_local else tuple(e for a in doc.agents for e in a.endpoints)
     meters = collect(ctx, days=args.days, billing=args.billing, allowance=allowance, month=month, endpoints=endpoints)
     if args.json:
-        document = {"generated": ctx.now.isoformat(), "days": args.days, "month": month, **as_json(meters)}
+        shown = {k: v for k, v in as_json(meters).items() if kinds is None or k not in {"codex", "copilot"} - kinds}
+        document = {"generated": ctx.now.isoformat(), "days": args.days, "month": month, **shown}
         # one line, ASCII only; `::` is written as a JSON escape so no value can start a workflow command
         ctx.say(json.dumps(document, separators=(",", ":")).replace("::", ":\\u003a"))
     else:
-        for line in text(meters, args.days, month):
+        for line in text(meters, args.days, month, kinds):
             ctx.say(line)
     return EXIT_OK
 

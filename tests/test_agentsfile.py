@@ -410,3 +410,43 @@ def test_a_shape_naming_a_local_model_no_endpoint_allows_warns_and_falls_back() 
     parsed = parse_agents(d)
     assert parsed.shape("ci-log-summary").local_model == ""
     assert len(parsed.warnings) == 1 and "falling back" in parsed.warnings[0]
+
+
+def _disabled(*ids: str) -> dict[str, Any]:
+    d = doc()
+    for i in ids:
+        d["agents"][i]["enabled"] = False
+    return d
+
+
+def test_a_disabled_agent_leaves_every_chain_and_the_agent_list() -> None:
+    f = parse_agents(_disabled("codex", "copilot"))
+    assert {"codex", "copilot"}.isdisjoint(a.id for a in f.agents)
+    for s in f.shapes:
+        assert {"codex", "copilot"}.isdisjoint(s.prefer + s.fallback + s.reviewer)
+    assert all({"codex", "copilot"}.isdisjoint((t.agent, t.then)) for t in f.thresholds)
+    assert f.shape("research").prefer == ("claude-sonnet",)  # the fallback steps up
+
+
+def test_enabled_defaults_to_true_and_must_be_a_boolean() -> None:
+    assert {a.id for a in parse_agents(doc()).agents} >= {"codex", "copilot"}
+    d = doc()
+    d["agents"]["codex"]["enabled"] = "no"
+    with pytest.raises(ConfigError, match=r"agents\.codex\.enabled"):
+        parse_agents(d)
+
+
+def test_a_shape_with_every_preferred_agent_disabled_names_the_shape() -> None:
+    d = _disabled("codex")
+    d["shapes"]["research"]["prefer"] = ["codex"]
+    d["shapes"]["research"]["fallback"] = ["codex"]
+    with pytest.raises(ConfigError, match=r"shapes\.research\.prefer.*disabled"):
+        parse_agents(d)
+
+
+def test_a_local_file_can_switch_an_agent_off_and_back_on(tmp_path: Path) -> None:
+    local = tmp_path / "l.yaml"
+    local.write_text("agents:\n  codex: {enabled: false}\n")
+    assert "codex" not in {a.id for a in load_agents_merged(AGENTS, local, trusted=False).agents}
+    local.write_text("agents:\n  codex: {enabled: true}\n")
+    assert "codex" in {a.id for a in load_agents_merged(AGENTS, local, trusted=False).agents}

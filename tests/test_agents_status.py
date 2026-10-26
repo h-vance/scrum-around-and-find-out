@@ -500,3 +500,27 @@ def test_a_card_without_a_repository_is_a_malformed_read_not_a_silent_skip(
     args = argparse.Namespace(hours=1.0, codex_dir="", no_codex=True, no_copilot=True, no_guard=True)
     with pytest.raises(MalformedDataError, match="repository or number"):
         run(ctx, args)
+
+
+def test_a_disabled_codex_and_copilot_get_no_section(fake: FakeGitHub, client: Client, tmp_path: Path) -> None:
+    build_world(fake)
+    local = tmp_path / "local.yaml"
+    local.write_text("agents:\n  codex: {enabled: false}\n  copilot: {enabled: false}\n")
+    root = Path(__file__).parent.parent / "agents.yaml"
+
+    def status(agents_local: str) -> str:
+        ctx, out = make_context(fake, load_test_board(), client)
+        args = argparse.Namespace(
+            hours=12.0,
+            codex_dir=str(tmp_path / "none"),
+            no_codex=False,
+            no_copilot=True,  # keeps gh out of the test; the Codex section is the one that shows
+            no_guard=True,
+            agents=str(root),
+            agents_local=agents_local,
+        )
+        assert run(ctx, args) == 0
+        return out.getvalue()
+
+    assert "Codex:" in status(str(tmp_path / "missing.yaml"))
+    assert "Codex:" not in status(str(local))

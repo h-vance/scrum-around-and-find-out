@@ -2,6 +2,10 @@
 # Copy to ~/.config/safo/agents.local.yaml (git-ignored) and put your real endpoints there. It is merged over
 # agents.yaml key by key; a list replaces the example's list. Never commit the real file: an address, a hostname
 # or a VPN name does not belong in a public repository, and tests/test_privacy.py fails on them.
+# To switch an agent off, give it `enabled: false` (default true), for example `codex: {enabled: false}`. It leaves
+# every shape's prefer, fallback and reviewer chain, and `usage`, `agents-status` and `route` skip it; set it back to
+# true to restore it. When every preferred agent of a shape is disabled its fallback steps up; a shape with nobody
+# left in prefer or fallback is a config error.
 agents:
   ollama:
     endpoints:

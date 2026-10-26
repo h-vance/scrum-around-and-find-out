@@ -381,3 +381,19 @@ def test_claude_a_malformed_ignored_key_does_not_skip_the_message(_private_home:
 def test_claude_family_of_current_model_ids() -> None:
     ids = ("claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1")
     assert [family_of(m) for m in ids] == ["opus", "sonnet", "haiku", "other"]
+
+
+def test_usage_text_skips_the_sections_of_agents_that_are_switched_off() -> None:
+    from safo.meters import Meters
+    from safo.meters.copilot import CopilotUsage
+    from safo.modes.usage import text
+
+    m = Meters(
+        read_codex_usage(Path("/nonexistent"), SINCE, NOW),
+        read_claude_usage(Path("/nonexistent"), SINCE),
+        CopilotUsage(False, None, False, None, None, None),
+    )
+    everything = "\n".join(text(m, 7, "2026-10"))
+    assert "Codex:" in everything and "Copilot:" in everything
+    off = "\n".join(text(m, 7, "2026-10", frozenset({"claude"})))
+    assert "Codex" not in off and "Copilot" not in off and "Claude Code" in off
